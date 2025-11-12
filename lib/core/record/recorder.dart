@@ -225,12 +225,8 @@ void _recordingIsolate(_IsolateParams params) {
       } else if (message is StopEvent) {
         shouldStop = true;
 
-        // Flush and close files synchronously
+        // Close files (close automatically flushes)
         try {
-          commandsSink?.flush();
-          telemetrySink?.flush();
-
-          // Close the sinks (this will complete futures)
           commandsSink?.close();
           telemetrySink?.close();
         } catch (e) {

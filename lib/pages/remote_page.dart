@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../core/state/controller.dart';
 import '../core/udp/packet_builder.dart';
 import '../widgets/mode_switch.dart';
-import '../widgets/slider_tile.dart';
 import '../widgets/record_toolbar.dart';
 
 /// Remote Control page - control 9 chambers with sliders
@@ -160,35 +159,35 @@ class _RemotePageState extends State<RemotePage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      // Sliders
+                      const SizedBox(height: 12),
+                      // Sliders in compact 3x3 grid
                       const Text(
                         'Chamber Targets',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Expanded(
-                        child: ListView.builder(
+                        child: GridView.builder(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 2.5,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 4,
+                          ),
                           itemCount: 9,
+                          physics: const NeverScrollableScrollPhysics(),
                           itemBuilder: (context, index) {
-                            return SliderTile(
-                              label: 'Chamber ${index + 1}',
+                            return _buildCompactSlider(
+                              index: index,
                               value: _targets[index],
                               min: min,
                               max: max,
                               unit: unit,
-                              onChanged: (value) {
-                                setState(() {
-                                  _targets[index] = value;
-                                });
-                                if (state.sending) {
-                                  widget.controller.setTarget(index, value);
-                                }
-                              },
+                              sending: state.sending,
                             );
                           },
                         ),
@@ -229,6 +228,82 @@ class _RemotePageState extends State<RemotePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCompactSlider({
+    required int index,
+    required double value,
+    required double min,
+    required double max,
+    required String unit,
+    required bool sending,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF3498DB).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Chamber number and value
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Ch${index + 1}',
+                style: const TextStyle(
+                  color: Color(0xFF3498DB),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${value.toStringAsFixed(0)} $unit',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          // Slider
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                activeTrackColor: const Color(0xFF3498DB),
+                inactiveTrackColor: const Color(0xFF555555),
+                thumbColor: const Color(0xFF3498DB),
+                overlayColor: const Color(0xFF3498DB).withOpacity(0.2),
+              ),
+              child: Slider(
+                value: value,
+                min: min,
+                max: max,
+                onChanged: (newValue) {
+                  setState(() {
+                    _targets[index] = newValue;
+                  });
+                  if (sending) {
+                    widget.controller.setTarget(index, newValue);
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
