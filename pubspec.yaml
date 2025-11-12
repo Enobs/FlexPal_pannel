@@ -1,0 +1,42 @@
+name: flexpal_control
+description: FlexPAL Modular Soft Robotics Multi-Platform Control Suite
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.0
+
+  # Charts
+  fl_chart: ^0.65.0
+
+  # UUID
+  uuid: ^4.0.0
+
+  # File I/O
+  path_provider: ^2.1.1
+  path: ^1.8.3
+
+  # JSON
+  shared_preferences: ^2.2.2
+
+  # Icons
+  cupertino_icons: ^1.0.2
+  font_awesome_flutter: ^10.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
