@@ -4,7 +4,8 @@
       "Bash(chmod:*)",
       "Bash(flutter pub get:*)",
       "Bash(flutter create:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(flutter build:*)"
     ],
     "deny": [],
     "ask": []

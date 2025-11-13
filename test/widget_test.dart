@@ -1,30 +1,36 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Basic Flutter widget test for FlexPAL Control Panel
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:flexpal_control/main.dart';
+import 'package:flexpal_control/core/state/controller.dart';
+import 'package:flexpal_control/core/state/app_state.dart';
+import 'package:flexpal_control/core/udp/udp_service.dart';
+import 'package:flexpal_control/core/utils/logger.dart';
+import 'package:flexpal_control/core/record/recorder.dart';
+import 'package:flexpal_control/core/camera/camera_service.dart';
+import 'package:flexpal_control/core/camera/camera_recorder.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('FlexPAL app smoke test', (WidgetTester tester) async {
+    // Initialize all dependencies
+    final state = AppState();
+    final udpService = UdpService();
+    final logger = Logger();
+    final recorder = Recorder('./test_recordings');
+    final cameraService = CameraService();
+    final cameraRecorder = CameraRecorder();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final controller = AppController(
+      state: state,
+      udpService: udpService,
+      recorder: recorder,
+      cameraService: cameraService,
+      cameraRecorder: cameraRecorder,
+      logger: logger,
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await controller.init();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // The app should initialize without errors
+    expect(controller.state.settings.mode, isNotNull);
   });
 }

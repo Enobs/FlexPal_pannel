@@ -22,6 +22,11 @@ class _RemotePageState extends State<RemotePage> {
   void initState() {
     super.initState();
     _rateHz = widget.controller.state.settings.sendRateHz;
+
+    // Initialize targets to the minimum value of the current mode's range
+    final mode = widget.controller.state.settings.mode;
+    final (min, max) = PacketBuilder.getDisplayRange(mode);
+    _targets = List.filled(9, min);
   }
 
   @override
@@ -58,8 +63,9 @@ class _RemotePageState extends State<RemotePage> {
                       ModeSwitch(
                         currentMode: mode,
                         onModeChanged: (newMode) {
+                          final (newMin, newMax) = PacketBuilder.getDisplayRange(newMode);
                           setState(() {
-                            _targets = List.filled(9, 0.0);
+                            _targets = List.filled(9, newMin);
                           });
                           widget.controller.setMode(newMode);
                         },
@@ -144,7 +150,7 @@ class _RemotePageState extends State<RemotePage> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 setState(() {
-                                  _targets = List.filled(9, 0.0);
+                                  _targets = List.filled(9, min);
                                 });
                                 widget.controller.setTargets(_targets);
                               },
