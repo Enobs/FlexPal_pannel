@@ -53,6 +53,7 @@ class _LogsPageState extends State<LogsPage> {
                   label: const Text('Export CSV'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3498DB),
+                    foregroundColor: Colors.white,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -65,6 +66,7 @@ class _LogsPageState extends State<LogsPage> {
                   label: const Text('Clear'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF555555),
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ],

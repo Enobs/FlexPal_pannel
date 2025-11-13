@@ -44,6 +44,11 @@ class AppState extends ChangeNotifier {
   int _sendCount = 0;
   int _recvCount = 0;
 
+  // Throttle UI updates to avoid excessive rebuilds
+  DateTime _lastNotifyTime = DateTime.now();
+  bool _pendingNotify = false;
+  static const Duration _notifyThrottle = Duration(milliseconds: 50); // Max 20 FPS
+
   AppState() {
     // Initialize 9 chambers
     for (int i = 1; i <= 9; i++) {
@@ -63,6 +68,30 @@ class AppState extends ChangeNotifier {
   int get recvCount => _recvCount;
 
   int get onlineChamberCount => _chambers.values.where((c) => c.isOnline).length;
+
+  // Throttled notify to prevent excessive UI rebuilds
+  void _notifyThrottled() {
+    final now = DateTime.now();
+    final timeSinceLastNotify = now.difference(_lastNotifyTime);
+
+    if (timeSinceLastNotify >= _notifyThrottle) {
+      // Enough time has passed, notify immediately
+      _lastNotifyTime = now;
+      _pendingNotify = false;
+      notifyListeners();
+    } else if (!_pendingNotify) {
+      // Schedule a delayed notification
+      _pendingNotify = true;
+      Future.delayed(_notifyThrottle - timeSinceLastNotify, () {
+        if (_pendingNotify) {
+          _lastNotifyTime = DateTime.now();
+          _pendingNotify = false;
+          notifyListeners();
+        }
+      });
+    }
+    // else: notification already pending, skip
+  }
 
   // Setters
 
@@ -94,7 +123,7 @@ class AppState extends ChangeNotifier {
 
   void updateRecvCount(int count) {
     _recvCount = count;
-    notifyListeners();
+    _notifyThrottled();
   }
 
   void onPacketReceived(ParsedPacket packet) {
@@ -115,7 +144,7 @@ class AppState extends ChangeNotifier {
     }
 
     _recvCount++;
-    notifyListeners();
+    _notifyThrottled(); // Use throttled notification instead of immediate
   }
 
   void checkChamberTimeouts() {

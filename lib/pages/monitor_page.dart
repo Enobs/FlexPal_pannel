@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/state/controller.dart';
@@ -18,29 +19,40 @@ class _MonitorPageState extends State<MonitorPage> {
   final List<ParsedPacket> _chamberHistory = [];
   final int _maxHistory = 200;
   bool _isPaused = false;
+  StreamSubscription<ParsedPacket>? _packetSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _startListening();
+  }
+
+  @override
+  void dispose() {
+    _packetSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _startListening() {
+    // Listen to incoming packets and update history efficiently
+    _packetSubscription?.cancel();
+    _packetSubscription = widget.controller.udpService.packets.listen((packet) {
+      if (!_isPaused && packet.chamberId == _selectedChamber && mounted) {
+        setState(() {
+          if (_chamberHistory.isEmpty || packet.timestamp != _chamberHistory.last.timestamp) {
+            _chamberHistory.add(packet);
+            if (_chamberHistory.length > _maxHistory) {
+              _chamberHistory.removeAt(0);
+            }
+          }
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.controller.state,
-      builder: (context, _) {
-        final state = widget.controller.state;
-
-        // Update history
-        if (!_isPaused) {
-          for (final packet in state.recentPackets) {
-            if (packet.chamberId == _selectedChamber) {
-              if (_chamberHistory.isEmpty || packet.timestamp != _chamberHistory.last.timestamp) {
-                _chamberHistory.add(packet);
-                if (_chamberHistory.length > _maxHistory) {
-                  _chamberHistory.removeAt(0);
-                }
-              }
-            }
-          }
-        }
-
-        return Scaffold(
+    return Scaffold(
           backgroundColor: const Color(0xFF1E1E1E),
           body: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -71,6 +83,7 @@ class _MonitorPageState extends State<MonitorPage> {
                             _selectedChamber = value;
                             _chamberHistory.clear();
                           });
+                          _startListening(); // Restart listener for new chamber
                         }
                       },
                     ),
@@ -85,6 +98,7 @@ class _MonitorPageState extends State<MonitorPage> {
                       label: Text(_isPaused ? 'Resume' : 'Pause'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF3498DB),
+                        foregroundColor: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -98,6 +112,7 @@ class _MonitorPageState extends State<MonitorPage> {
                       label: const Text('Reset'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF555555),
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ],
@@ -142,8 +157,6 @@ class _MonitorPageState extends State<MonitorPage> {
             ),
           ),
         );
-      },
-    );
   }
 
   Widget _buildChartCard(String title, Color color, double Function(ParsedPacket) getValue) {
