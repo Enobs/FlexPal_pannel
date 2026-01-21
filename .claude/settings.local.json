@@ -6,7 +6,10 @@
       "Bash(flutter create:*)",
       "Bash(flutter analyze:*)",
       "Bash(flutter build:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(ip neigh:*)",
+      "Bash(curl:*)",
+      "Bash(nc:*)"
     ],
     "deny": [],
     "ask": []
