@@ -32,6 +32,9 @@ class _RemotePageState extends State<RemotePage> {
   // Gripper text controller
   final TextEditingController _gripperTextController = TextEditingController();
 
+  // Chamber text controllers
+  final List<TextEditingController> _chamberControllers = List.generate(9, (_) => TextEditingController());
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +49,11 @@ class _RemotePageState extends State<RemotePage> {
     _gripperTarget = widget.controller.state.gripperAngle;
     _gripperTextController.text = _gripperTarget.toStringAsFixed(0);
 
+    // Initialize chamber text controllers
+    for (int i = 0; i < 9; i++) {
+      _chamberControllers[i].text = _targets[i].toStringAsFixed(0);
+    }
+
     // Auto-start camera preview
     _startCamera();
   }
@@ -54,6 +62,9 @@ class _RemotePageState extends State<RemotePage> {
   void dispose() {
     _stopCamera();
     _gripperTextController.dispose();
+    for (final controller in _chamberControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -273,35 +284,59 @@ class _RemotePageState extends State<RemotePage> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            // Chamber Targets label
-                            const Text(
-                              'Chamber Targets',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            // Chamber Targets label with Apply button
+                            Row(
+                              children: [
+                                const Text(
+                                  'Targets',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '($unit)',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const Spacer(),
+                                SizedBox(
+                                  height: 28,
+                                  child: ElevatedButton(
+                                    onPressed: () => _applyAllTargets(min, max),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF3498DB),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      minimumSize: Size.zero,
+                                    ),
+                                    child: const Text('Apply', style: TextStyle(fontSize: 11)),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
-                            // Sliders in compact 3x3 grid
+                            // Text fields in compact 3x3 grid
                             Expanded(
                               child: GridView.builder(
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 3,
-                                  childAspectRatio: 2.2,
+                                  childAspectRatio: 2.5,
                                   crossAxisSpacing: 6,
                                   mainAxisSpacing: 4,
                                 ),
                                 itemCount: 9,
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemBuilder: (context, index) {
-                                  return _buildCompactSlider(
+                                  return _buildChamberInput(
                                     index: index,
-                                    value: _targets[index],
                                     min: min,
                                     max: max,
                                     unit: unit,
-                                    sending: state.sending,
                                   );
                                 },
                               ),
@@ -534,6 +569,80 @@ class _RemotePageState extends State<RemotePage> {
     widget.controller.setGripperAngle(value);
   }
 
+  void _applyAllTargets(double min, double max) {
+    for (int i = 0; i < 9; i++) {
+      final text = _chamberControllers[i].text;
+      double value = double.tryParse(text) ?? min;
+      value = value.clamp(min, max);
+      _targets[i] = value;
+      _chamberControllers[i].text = value.toStringAsFixed(0);
+      widget.controller.setTarget(i, value);
+    }
+    setState(() {});
+  }
+
+  Widget _buildChamberInput({
+    required int index,
+    required double min,
+    required double max,
+    required String unit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: const Color(0xFF3498DB).withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Ch${index + 1}',
+            style: const TextStyle(
+              color: Color(0xFF3498DB),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: SizedBox(
+              height: 28,
+              child: TextField(
+                controller: _chamberControllers[index],
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.-]'))],
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: Color(0xFF555555)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: Color(0xFF555555)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: Color(0xFF3498DB)),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF1E1E1E),
+                ),
+                onSubmitted: (_) => _applyAllTargets(min, max),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCameraPreview(int camId) {
     final frame = _latestFrames[camId];
     final status = _latestStatus[camId];
@@ -599,79 +708,4 @@ class _RemotePageState extends State<RemotePage> {
     );
   }
 
-  Widget _buildCompactSlider({
-    required int index,
-    required double value,
-    required double min,
-    required double max,
-    required String unit,
-    required bool sending,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFF3498DB).withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: Chamber number and value
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Ch${index + 1}',
-                style: const TextStyle(
-                  color: Color(0xFF3498DB),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                '${value.toStringAsFixed(0)} $unit',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          // Slider
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                activeTrackColor: const Color(0xFF3498DB),
-                inactiveTrackColor: const Color(0xFF555555),
-                thumbColor: const Color(0xFF3498DB),
-                overlayColor: const Color(0xFF3498DB).withOpacity(0.2),
-              ),
-              child: Slider(
-                value: value,
-                min: min,
-                max: max,
-                onChanged: (newValue) {
-                  setState(() {
-                    _targets[index] = newValue;
-                  });
-                  if (sending) {
-                    widget.controller.setTarget(index, newValue);
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
