@@ -4,7 +4,7 @@ import 'dart:io';
 /// UDP service for controlling the gripper on Raspberry Pi
 class GripperService {
   RawDatagramSocket? _socket;
-  String _ip = '192.168.137.124';
+  String _ip = '192.168.137.244';
   int _port = 5010;
   int _maxAngle = 80;
   bool _enabled = true;
