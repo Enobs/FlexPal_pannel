@@ -30,6 +30,12 @@ class _SettingsPageState extends State<SettingsPage> {
   int _cameraMaxViews = 3;
   int _cameraSaveFps = 30;
 
+  // Gripper settings controllers
+  late TextEditingController _gripperIpController;
+  late TextEditingController _gripperPortController;
+  late TextEditingController _gripperMaxAngleController;
+  bool _gripperEnabled = true;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +55,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _cameraMaxViews = settings.camera.maxViews;
     _cameraSaveFps = settings.camera.defaultSaveFps;
 
+    // Initialize gripper settings
+    _gripperIpController = TextEditingController(text: settings.gripper.ip);
+    _gripperPortController = TextEditingController(text: settings.gripper.port.toString());
+    _gripperMaxAngleController = TextEditingController(text: settings.gripper.maxAngle.toString());
+    _gripperEnabled = settings.gripper.enabled;
+
     _loadStoragePath();
   }
 
@@ -62,6 +74,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _cameraPortsController.dispose();
     _cameraPathController.dispose();
     _cameraOutputRootController.dispose();
+    _gripperIpController.dispose();
+    _gripperPortController.dispose();
+    _gripperMaxAngleController.dispose();
     super.dispose();
   }
 
@@ -185,6 +200,38 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Output Root Directory',
                     _cameraOutputRootController,
                     './VLA_Records',
+                  ),
+                  const SizedBox(height: 24),
+                  // Gripper settings
+                  _buildSectionTitle('Gripper Configuration'),
+                  _buildTextField(
+                    'Gripper IP Address',
+                    _gripperIpController,
+                    'e.g., 192.168.137.124',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    'Gripper UDP Port',
+                    _gripperPortController,
+                    'e.g., 5010',
+                    isNumeric: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    'Max Gripper Angle',
+                    _gripperMaxAngleController,
+                    'e.g., 80',
+                    isNumeric: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSwitch(
+                    'Gripper Enabled',
+                    _gripperEnabled,
+                    (value) {
+                      setState(() {
+                        _gripperEnabled = value;
+                      });
+                    },
                   ),
                   const SizedBox(height: 24),
                   // Storage
@@ -334,6 +381,27 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildSwitch(
+    String label,
+    bool value,
+    Function(bool) onChanged,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: const Color(0xFF2ECC71),
+        ),
+      ],
+    );
+  }
+
   Widget _buildInfoCard(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,6 +456,12 @@ class _SettingsPageState extends State<SettingsPage> {
           defaultSaveFps: _cameraSaveFps,
           outputRoot: _cameraOutputRootController.text.trim(),
         ),
+        gripper: widget.controller.state.settings.gripper.copyWith(
+          ip: _gripperIpController.text.trim(),
+          port: int.parse(_gripperPortController.text.trim()),
+          maxAngle: int.parse(_gripperMaxAngleController.text.trim()),
+          enabled: _gripperEnabled,
+        ),
       );
 
       await widget.controller.saveSettings(newSettings);
@@ -421,6 +495,12 @@ class _SettingsPageState extends State<SettingsPage> {
       _cameraOutputRootController.text = './VLA_Records';
       _cameraMaxViews = 3;
       _cameraSaveFps = 30;
+
+      // Restore gripper defaults
+      _gripperIpController.text = '192.168.137.124';
+      _gripperPortController.text = '5010';
+      _gripperMaxAngleController.text = '80';
+      _gripperEnabled = true;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(

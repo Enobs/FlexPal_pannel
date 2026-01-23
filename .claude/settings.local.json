@@ -9,7 +9,8 @@
       "Bash(ls:*)",
       "Bash(ip neigh:*)",
       "Bash(curl:*)",
-      "Bash(nc:*)"
+      "Bash(nc:*)",
+      "Bash(arp:*)"
     ],
     "deny": [],
     "ask": []

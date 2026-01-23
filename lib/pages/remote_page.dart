@@ -17,6 +17,7 @@ class RemotePage extends StatefulWidget {
 class _RemotePageState extends State<RemotePage> {
   List<double> _targets = List.filled(9, 0.0);
   int _rateHz = 25;
+  double _gripperTarget = 0;
 
   @override
   void initState() {
@@ -27,6 +28,9 @@ class _RemotePageState extends State<RemotePage> {
     final mode = widget.controller.state.settings.mode;
     final (min, max) = PacketBuilder.getDisplayRange(mode);
     _targets = List.filled(9, min);
+
+    // Initialize gripper target
+    _gripperTarget = widget.controller.state.gripperAngle;
   }
 
   @override
@@ -198,6 +202,11 @@ class _RemotePageState extends State<RemotePage> {
                           },
                         ),
                       ),
+                      // Gripper control section
+                      if (state.settings.gripper.enabled) ...[
+                        const SizedBox(height: 16),
+                        _buildGripperControl(state),
+                      ],
                     ],
                   ),
                 ),
@@ -234,6 +243,150 @@ class _RemotePageState extends State<RemotePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGripperControl(dynamic state) {
+    final maxAngle = state.settings.gripper.maxAngle.toDouble();
+    final isConnected = state.gripperConnected;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isConnected
+              ? const Color(0xFF2ECC71).withOpacity(0.5)
+              : const Color(0xFFE74C3C).withOpacity(0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Gripper Control',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isConnected
+                          ? const Color(0xFF2ECC71).withOpacity(0.2)
+                          : const Color(0xFFE74C3C).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      isConnected ? 'Connected' : 'Offline',
+                      style: TextStyle(
+                        color: isConnected
+                            ? const Color(0xFF2ECC71)
+                            : const Color(0xFFE74C3C),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${_gripperTarget.toStringAsFixed(0)}° / ${maxAngle.toStringAsFixed(0)}°',
+                style: const TextStyle(
+                  color: Color(0xFF3498DB),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Slider
+          Row(
+            children: [
+              const Text('0°', style: TextStyle(color: Colors.grey, fontSize: 11)),
+              Expanded(
+                child: Slider(
+                  value: _gripperTarget.clamp(0.0, maxAngle).toDouble(),
+                  min: 0,
+                  max: maxAngle,
+                  divisions: maxAngle.toInt(),
+                  onChanged: (value) {
+                    setState(() {
+                      _gripperTarget = value;
+                    });
+                  },
+                  onChangeEnd: (value) {
+                    widget.controller.setGripperAngle(value);
+                  },
+                ),
+              ),
+              Text('${maxAngle.toStringAsFixed(0)}°',
+                  style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Quick action buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() => _gripperTarget = 0);
+                    widget.controller.closeGripper();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE74C3C),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Close'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() => _gripperTarget = maxAngle / 2);
+                    widget.controller.halfGripper();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3498DB),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Half'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() => _gripperTarget = maxAngle);
+                    widget.controller.openGripper();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2ECC71),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Open'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

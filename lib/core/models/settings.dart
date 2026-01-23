@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../../models/camera_settings.dart';
+import '../../models/gripper_settings.dart';
 
 /// Application settings model
 class Settings {
@@ -9,6 +10,7 @@ class Settings {
   final int sendRateHz;
   final int mode; // 1=Pressure, 2=PWM, 3=Length
   final CameraSettings camera;
+  final GripperSettings gripper;
 
   Settings({
     this.broadcastAddress = '192.168.137.255',
@@ -17,7 +19,9 @@ class Settings {
     this.sendRateHz = 25,
     this.mode = 3,
     CameraSettings? camera,
-  }) : camera = camera ?? CameraSettings.defaults();
+    GripperSettings? gripper,
+  }) : camera = camera ?? CameraSettings.defaults(),
+       gripper = gripper ?? GripperSettings.defaults();
 
   Settings copyWith({
     String? broadcastAddress,
@@ -26,6 +30,7 @@ class Settings {
     int? sendRateHz,
     int? mode,
     CameraSettings? camera,
+    GripperSettings? gripper,
   }) {
     return Settings(
       broadcastAddress: broadcastAddress ?? this.broadcastAddress,
@@ -34,6 +39,7 @@ class Settings {
       sendRateHz: sendRateHz ?? this.sendRateHz,
       mode: mode ?? this.mode,
       camera: camera ?? this.camera,
+      gripper: gripper ?? this.gripper,
     );
   }
 
@@ -45,6 +51,7 @@ class Settings {
       'sendRateHz': sendRateHz,
       'mode': mode,
       'camera': camera.toJson(),
+      'gripper': gripper.toJson(),
     };
   }
 
@@ -58,6 +65,9 @@ class Settings {
       camera: json['camera'] != null
           ? CameraSettings.fromJson(json['camera'] as Map<String, dynamic>)
           : CameraSettings.defaults(),
+      gripper: json['gripper'] != null
+          ? GripperSettings.fromJson(json['gripper'] as Map<String, dynamic>)
+          : GripperSettings.defaults(),
     );
   }
 

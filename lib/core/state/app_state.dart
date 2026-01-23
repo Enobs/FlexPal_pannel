@@ -44,6 +44,10 @@ class AppState extends ChangeNotifier {
   int _sendCount = 0;
   int _recvCount = 0;
 
+  // Gripper state
+  double _gripperAngle = 0;
+  bool _gripperConnected = false;
+
   // Throttle UI updates to avoid excessive rebuilds
   DateTime _lastNotifyTime = DateTime.now();
   bool _pendingNotify = false;
@@ -68,6 +72,8 @@ class AppState extends ChangeNotifier {
   int get recvCount => _recvCount;
 
   int get onlineChamberCount => _chambers.values.where((c) => c.isOnline).length;
+  double get gripperAngle => _gripperAngle;
+  bool get gripperConnected => _gripperConnected;
 
   // Throttled notify to prevent excessive UI rebuilds
   void _notifyThrottled() {
@@ -124,6 +130,12 @@ class AppState extends ChangeNotifier {
   void updateRecvCount(int count) {
     _recvCount = count;
     _notifyThrottled();
+  }
+
+  void updateGripperStatus(double angle, bool connected) {
+    _gripperAngle = angle;
+    _gripperConnected = connected;
+    notifyListeners();
   }
 
   void onPacketReceived(ParsedPacket packet) {

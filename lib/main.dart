@@ -7,6 +7,7 @@ import 'core/udp/udp_service.dart';
 import 'core/record/recorder.dart';
 import 'core/camera/camera_service.dart';
 import 'core/camera/camera_recorder.dart';
+import 'core/gripper/gripper_service.dart';
 import 'core/utils/logger.dart';
 import 'pages/overview_page.dart';
 import 'pages/remote_page.dart';
@@ -31,12 +32,16 @@ void main() async {
   final cameraService = CameraService();
   final cameraRecorder = CameraRecorder();
 
+  // Initialize gripper service
+  final gripperService = GripperService();
+
   final controller = AppController(
     state: state,
     udpService: udpService,
     recorder: recorder,
     cameraService: cameraService,
     cameraRecorder: cameraRecorder,
+    gripperService: gripperService,
     logger: logger,
   );
 

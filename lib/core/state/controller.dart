@@ -7,6 +7,7 @@ import '../udp/udp_service.dart';
 import '../record/recorder.dart';
 import '../camera/camera_service.dart';
 import '../camera/camera_recorder.dart';
+import '../gripper/gripper_service.dart';
 import '../utils/logger.dart';
 import 'app_state.dart';
 
@@ -17,6 +18,7 @@ class AppController {
   final Recorder recorder;
   final CameraService cameraService;
   final CameraRecorder cameraRecorder;
+  final GripperService gripperService;
   final Logger logger;
 
   Timer? _timeoutCheckTimer;
@@ -24,6 +26,7 @@ class AppController {
   StreamSubscription? _udpLogSubscription;
   StreamSubscription? _recorderLogSubscription;
   StreamSubscription? _cameraFrameSubscription;
+  StreamSubscription? _gripperStatusSubscription;
 
   AppController({
     required this.state,
@@ -31,6 +34,7 @@ class AppController {
     required this.recorder,
     required this.cameraService,
     required this.cameraRecorder,
+    required this.gripperService,
     required this.logger,
   });
 
@@ -43,7 +47,46 @@ class AppController {
       state.checkChamberTimeouts();
     });
 
+    // Initialize gripper service
+    await initGripper();
+
     logger.info('Controller initialized');
+  }
+
+  /// Initialize gripper service
+  Future<void> initGripper() async {
+    final gripper = state.settings.gripper;
+    await gripperService.init(
+      gripper.ip,
+      gripper.port,
+      gripper.maxAngle,
+      gripper.enabled,
+    );
+
+    // Subscribe to gripper status updates
+    _gripperStatusSubscription = gripperService.status.listen((status) {
+      state.updateGripperStatus(status.angle, status.isConnected);
+    });
+  }
+
+  /// Set gripper angle
+  Future<void> setGripperAngle(double angle) async {
+    await gripperService.setAngle(angle);
+  }
+
+  /// Open gripper
+  Future<void> openGripper() async {
+    await gripperService.open();
+  }
+
+  /// Close gripper
+  Future<void> closeGripper() async {
+    await gripperService.close();
+  }
+
+  /// Set gripper to half position
+  Future<void> halfGripper() async {
+    await gripperService.half();
   }
 
   /// Load settings from persistent storage
@@ -314,10 +357,12 @@ class AppController {
     await _udpLogSubscription?.cancel();
     await _recorderLogSubscription?.cancel();
     await _cameraFrameSubscription?.cancel();
+    await _gripperStatusSubscription?.cancel();
     udpService.dispose();
     recorder.dispose();
     await cameraService.dispose();
     await cameraRecorder.dispose();
+    gripperService.dispose();
     logger.dispose();
   }
 }

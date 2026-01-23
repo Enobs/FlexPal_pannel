@@ -8,6 +8,7 @@ import 'package:flexpal_control/core/utils/logger.dart';
 import 'package:flexpal_control/core/record/recorder.dart';
 import 'package:flexpal_control/core/camera/camera_service.dart';
 import 'package:flexpal_control/core/camera/camera_recorder.dart';
+import 'package:flexpal_control/core/gripper/gripper_service.dart';
 
 void main() {
   testWidgets('FlexPAL app smoke test', (WidgetTester tester) async {
@@ -18,6 +19,7 @@ void main() {
     final recorder = Recorder('./test_recordings');
     final cameraService = CameraService();
     final cameraRecorder = CameraRecorder();
+    final gripperService = GripperService();
 
     final controller = AppController(
       state: state,
@@ -25,6 +27,7 @@ void main() {
       recorder: recorder,
       cameraService: cameraService,
       cameraRecorder: cameraRecorder,
+      gripperService: gripperService,
       logger: logger,
     );
 
