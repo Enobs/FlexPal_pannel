@@ -11,6 +11,7 @@ import 'core/gripper/gripper_service.dart';
 import 'core/utils/logger.dart';
 import 'pages/overview_page.dart';
 import 'pages/remote_page.dart';
+import 'pages/joystick_page.dart';
 import 'pages/monitor_page.dart';
 import 'pages/camera_page.dart';
 import 'pages/logs_page.dart';
@@ -91,6 +92,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final List<({IconData icon, String label})> _navItems = [
     (icon: FontAwesomeIcons.grip, label: 'Overview'),
     (icon: FontAwesomeIcons.gamepad, label: 'Remote'),
+    (icon: FontAwesomeIcons.upDownLeftRight, label: 'Joystick'),
     (icon: FontAwesomeIcons.chartLine, label: 'Monitor'),
     (icon: FontAwesomeIcons.video, label: 'Camera'),
     (icon: FontAwesomeIcons.rectangleList, label: 'Logs'),
@@ -176,6 +178,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         children: [
           OverviewPage(controller: widget.controller),
           RemotePage(controller: widget.controller),
+          JoystickPage(controller: widget.controller),
           MonitorPage(controller: widget.controller),
           CameraPage(controller: widget.controller),
           LogsPage(controller: widget.controller),

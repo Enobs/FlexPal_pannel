@@ -5,22 +5,58 @@ Cross-platform Flutter app for controlling 9-chamber soft robotics system via UD
 ## Quick Start
 
 ```bash
-# Install & run
+# Install dependencies
 flutter pub get
+
+# Run in development mode
 flutter run
 
 # Test without hardware
 dart run tools/udp_simulator.dart 127.0.0.1 5006
 ```
 
+## Building for Release
+
+### Linux
+```bash
+flutter build linux --release
+# Output: build/linux/x64/release/bundle/flexpal_control
+```
+
+### Android APK
+```bash
+# Prerequisites: Android SDK installed and configured
+flutter doctor  # Check Android toolchain status
+
+# Build APK
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk (≈50MB)
+
+# Install on connected device (USB debugging enabled)
+adb install build/app/outputs/flutter-apk/app-release.apk
+```
+
+### Windows (must be built on Windows)
+```bash
+flutter build windows --release
+# Output: build/windows/x64/runner/Release/
+```
+
+### macOS (must be built on macOS)
+```bash
+flutter build macos --release
+```
+
 ## Features
 
 - **3 Control Modes**: Pressure (-100k~30k Pa), PWM (-100~100%), Length (15~30cm)
+- **Joystick Control**: Dual virtual joysticks for intuitive PWM control (touch + keyboard)
 - **Real-time Monitoring**: Charts for Length, Pressure, Battery, 6-axis IMU
 - **VLA Recording**: Timestamped CSV for ML training
 - **Camera Integration**: 1-3 MJPEG streams at 30 FPS
 - **Gripper Control**: UDP-based servo gripper control (0-80°)
 - **Cross-platform**: Linux, Windows, macOS, Android, iOS
+- **Responsive UI**: Optimized layouts for desktop and mobile
 
 ## Configuration
 
@@ -64,6 +100,42 @@ dart run tools/udp_simulator.dart 127.0.0.1 5006
 [29-32] Pressure (Float32LE, kPa)
 [33-36] Battery (Float32LE, %)
 ```
+
+## Joystick Control Page
+
+The Joystick page provides intuitive PWM control using dual virtual joysticks for controlling chambers 1-8.
+
+### Control Mapping
+
+| Joystick | Direction | PWM Output |
+|----------|-----------|------------|
+| Base (1-4) | Left | Ch1=-100, Ch3=60 |
+| Base (1-4) | Right | Ch1=60, Ch3=-100 |
+| Base (1-4) | Up | Ch2=-100, Ch4=60 |
+| Base (1-4) | Down | Ch2=60, Ch4=-100 |
+| Upper (5-8) | Left | Ch5=-100, Ch7=60 |
+| Upper (5-8) | Right | Ch5=60, Ch7=-100 |
+| Upper (5-8) | Up | Ch6=-100, Ch8=60 |
+| Upper (5-8) | Down | Ch6=60, Ch8=-100 |
+
+### Keyboard Controls (PC)
+
+| Key | Action |
+|-----|--------|
+| W | Base joystick Up |
+| A | Base joystick Left |
+| S | Base joystick Down |
+| D | Base joystick Right |
+| I | Upper joystick Up |
+| J | Upper joystick Left |
+| K | Upper joystick Down |
+| L | Upper joystick Right |
+| SPACE | Toggle gripper Open/Close |
+
+### Touch Controls (Mobile)
+- Drag joystick knobs to control PWM values
+- Release to return to center (all PWM = 0)
+- Joysticks are positioned at the bottom for easy thumb access
 
 ### Gripper UDP Protocol (Port 5010)
 | Command | Description | Response |
@@ -188,7 +260,16 @@ lib/
 
 ## Changelog
 
-### v1.2.0 (Latest)
+### v1.3.0 (Latest)
+- **Joystick Control Page**: Dual virtual joysticks for intuitive PWM control
+  - Touch support for mobile devices (joysticks at bottom for thumb access)
+  - Keyboard support: WASD (base), IJKL (upper), SPACE (gripper toggle)
+  - Real-time PWM value display
+  - Camera views and gripper controls integrated
+- **Android APK Support**: Full build instructions and network permissions
+- **Responsive UI**: Portrait/landscape layouts for mobile and desktop
+
+### v1.2.0
 - Gripper control via UDP (servo on Raspberry Pi GPIO 14)
 - Remote page redesign: camera views + text input controls
 - Compact overview page with chip-style summary
@@ -212,4 +293,4 @@ lib/
 
 ---
 
-**Version**: 1.2.0 | **Platform**: Flutter 3.0+ | **License**: MIT
+**Version**: 1.3.0 | **Platform**: Flutter 3.0+ | **License**: MIT
