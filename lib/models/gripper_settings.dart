@@ -17,7 +17,7 @@ class GripperSettings {
   /// Default gripper settings
   factory GripperSettings.defaults() {
     return const GripperSettings(
-      ip: '192.168.137.124',
+      ip: '192.168.137.244',
       port: 5010,
       maxAngle: 80,
       enabled: true,
@@ -27,7 +27,7 @@ class GripperSettings {
   /// Create from JSON map
   factory GripperSettings.fromJson(Map<String, dynamic> json) {
     return GripperSettings(
-      ip: json['ip'] as String? ?? '192.168.137.124',
+      ip: json['ip'] as String? ?? '192.168.137.244',
       port: json['port'] as int? ?? 5010,
       maxAngle: json['maxAngle'] as int? ?? 80,
       enabled: json['enabled'] as bool? ?? true,

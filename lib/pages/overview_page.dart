@@ -99,6 +99,11 @@ class OverviewPage extends StatelessWidget {
             state.recording ? 'REC' : 'IDLE',
             state.recording ? const Color(0xFFE74C3C) : const Color(0xFF555555),
           ),
+          const SizedBox(width: 8),
+          _buildSummaryChip(
+            'RX:${state.recvCount}',
+            state.recvCount > 0 ? const Color(0xFF2ECC71) : const Color(0xFF555555),
+          ),
         ],
       ),
     );

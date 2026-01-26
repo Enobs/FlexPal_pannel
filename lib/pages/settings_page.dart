@@ -497,7 +497,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _cameraSaveFps = 30;
 
       // Restore gripper defaults
-      _gripperIpController.text = '192.168.137.124';
+      _gripperIpController.text = '192.168.137.244';
       _gripperPortController.text = '5010';
       _gripperMaxAngleController.text = '80';
       _gripperEnabled = true;

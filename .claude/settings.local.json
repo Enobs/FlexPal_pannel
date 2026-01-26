@@ -11,7 +11,8 @@
       "Bash(curl:*)",
       "Bash(nc:*)",
       "Bash(arp:*)",
-      "Bash(flutter doctor:*)"
+      "Bash(flutter doctor:*)",
+      "Bash(ip addr:*)"
     ],
     "deny": [],
     "ask": []
