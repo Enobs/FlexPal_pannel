@@ -93,12 +93,12 @@ class ChamberCard extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 14,
+          width: 18,
           child: Text(
             label,
             style: TextStyle(
               color: Colors.grey[500],
-              fontSize: 9,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -108,7 +108,7 @@ class ChamberCard extends StatelessWidget {
             value,
             style: TextStyle(
               color: color,
-              fontSize: 11,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),

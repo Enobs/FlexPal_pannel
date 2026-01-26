@@ -21,7 +21,13 @@
       "Bash(ip link:*)",
       "Bash(nmap:*)",
       "Bash(sudo cat:*)",
-      "Bash(journalctl:*)"
+      "Bash(journalctl:*)",
+      "Bash(for i in 1 2 3)",
+      "Bash(do echo \"Scan $i:\")",
+      "Bash(done)",
+      "Bash(nmcli connection show:*)",
+      "Bash(nmcli connection:*)",
+      "Bash(nmcli:*)"
     ],
     "deny": [],
     "ask": []
