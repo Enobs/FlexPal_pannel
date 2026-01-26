@@ -15,7 +15,13 @@
       "Bash(ip addr:*)",
       "Bash(flutter:*)",
       "Bash(/snap/bin/flutter create:*)",
-      "Bash(/home/yinan/snap/flutter/common/flutter/bin/flutter create:*)"
+      "Bash(/home/yinan/snap/flutter/common/flutter/bin/flutter create:*)",
+      "Bash(/home/yinan/snap/flutter/common/flutter/bin/flutter build:*)",
+      "Bash(nmcli device status:*)",
+      "Bash(ip link:*)",
+      "Bash(nmap:*)",
+      "Bash(sudo cat:*)",
+      "Bash(journalctl:*)"
     ],
     "deny": [],
     "ask": []

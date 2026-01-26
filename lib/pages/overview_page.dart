@@ -29,7 +29,7 @@ class OverviewPage extends StatelessWidget {
               'Chambers',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -68,38 +68,35 @@ class OverviewPage extends StatelessWidget {
 
   Widget _buildSummaryCard(AppState state) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
           _buildSummaryChip(
             '${state.onlineChamberCount}/9',
             state.onlineChamberCount == 9 ? const Color(0xFF2ECC71) : const Color(0xFFE67E22),
           ),
-          const SizedBox(width: 8),
           _buildSummaryChip(
             _getModeName(state.settings.mode),
             const Color(0xFF3498DB),
           ),
-          const SizedBox(width: 8),
           _buildSummaryChip(
             '${state.settings.sendRateHz}Hz',
             const Color(0xFF9B59B6),
           ),
-          const SizedBox(width: 8),
           _buildSummaryChip(
             state.sending ? 'SEND' : (state.udpRunning ? 'READY' : 'STOP'),
             state.sending ? const Color(0xFF2ECC71) : const Color(0xFF555555),
           ),
-          const SizedBox(width: 8),
           _buildSummaryChip(
             state.recording ? 'REC' : 'IDLE',
             state.recording ? const Color(0xFFE74C3C) : const Color(0xFF555555),
           ),
-          const SizedBox(width: 8),
           _buildSummaryChip(
             'RX:${state.recvCount}',
             state.recvCount > 0 ? const Color(0xFF2ECC71) : const Color(0xFF555555),
@@ -111,17 +108,17 @@ class OverviewPage extends StatelessWidget {
 
   Widget _buildSummaryChip(String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
       ),
       child: Text(
         value,
         style: TextStyle(
           color: color,
-          fontSize: 11,
+          fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
       ),
