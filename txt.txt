@@ -1,0 +1,5 @@
+7cannot shirnk
+8 pressure,bat,chip
+4 vlve, chip,bat
+3 chip,bat
+1 chip

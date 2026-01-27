@@ -40,10 +40,10 @@ class _RemotePageState extends State<RemotePage> {
     super.initState();
     _rateHz = widget.controller.state.settings.sendRateHz;
 
-    // Initialize targets to the minimum value of the current mode's range
+    // Initialize targets based on mode: Pressure=0, PWM=0, Length=30
     final mode = widget.controller.state.settings.mode;
-    final (min, max) = PacketBuilder.getDisplayRange(mode);
-    _targets = List.filled(9, min);
+    final defaultValue = _getDefaultValueForModeStatic(mode);
+    _targets = List.filled(9, defaultValue);
 
     // Initialize gripper target
     _gripperTarget = widget.controller.state.gripperAngle;
@@ -56,6 +56,20 @@ class _RemotePageState extends State<RemotePage> {
 
     // Auto-start camera preview
     _startCamera();
+  }
+
+  /// Get default display value for a mode (static version for initState)
+  static double _getDefaultValueForModeStatic(int mode) {
+    switch (mode) {
+      case 1: // Pressure - default 0 kPa
+        return 0.0;
+      case 2: // PWM - default 0
+        return 0.0;
+      case 3: // Length - default 30mm
+        return 30.0;
+      default:
+        return 0.0;
+    }
   }
 
   @override
@@ -176,12 +190,16 @@ class _RemotePageState extends State<RemotePage> {
                     Expanded(
                       child: ModeSwitch(
                         currentMode: mode,
-                        onModeChanged: (newMode) {
-                          final (newMin, newMax) = PacketBuilder.getDisplayRange(newMode);
+                        onModeChanged: (newMode) async {
+                          // Stop sending first if switching to Pressure or Length (non-PWM)
+                          if (newMode != 2 && widget.controller.state.sending) {
+                            await widget.controller.stopSending();
+                          }
+                          final defaultValue = _getDefaultValueForModeStatic(newMode);
                           setState(() {
-                            _targets = List.filled(9, newMin);
+                            _targets = List.filled(9, defaultValue);
                             for (int i = 0; i < 9; i++) {
-                              _chamberControllers[i].text = newMin.toStringAsFixed(0);
+                              _chamberControllers[i].text = defaultValue.toStringAsFixed(0);
                             }
                           });
                           widget.controller.setMode(newMode);
@@ -314,6 +332,20 @@ class _RemotePageState extends State<RemotePage> {
                     SizedBox(
                       height: 28,
                       child: ElevatedButton(
+                        onPressed: () => _resetToDefaults(mode),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF555555),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: Size.zero,
+                        ),
+                        child: const Text('Reset', style: TextStyle(fontSize: 11)),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      height: 28,
+                      child: ElevatedButton(
                         onPressed: () => _applyAllTargets(min, max),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF3498DB),
@@ -435,12 +467,16 @@ class _RemotePageState extends State<RemotePage> {
                           Expanded(
                             child: ModeSwitch(
                               currentMode: mode,
-                              onModeChanged: (newMode) {
-                                final (newMin, newMax) = PacketBuilder.getDisplayRange(newMode);
+                              onModeChanged: (newMode) async {
+                                // Stop sending first if switching to Pressure or Length (non-PWM)
+                                if (newMode != 2 && widget.controller.state.sending) {
+                                  await widget.controller.stopSending();
+                                }
+                                final defaultValue = _getDefaultValueForModeStatic(newMode);
                                 setState(() {
-                                  _targets = List.filled(9, newMin);
+                                  _targets = List.filled(9, defaultValue);
                                   for (int i = 0; i < 9; i++) {
-                                    _chamberControllers[i].text = newMin.toStringAsFixed(0);
+                                    _chamberControllers[i].text = defaultValue.toStringAsFixed(0);
                                   }
                                 });
                                 widget.controller.setMode(newMode);
@@ -578,6 +614,20 @@ class _RemotePageState extends State<RemotePage> {
                             ),
                           ),
                           const Spacer(),
+                          SizedBox(
+                            height: 28,
+                            child: ElevatedButton(
+                              onPressed: () => _resetToDefaults(mode),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF555555),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                minimumSize: Size.zero,
+                              ),
+                              child: const Text('Reset', style: TextStyle(fontSize: 11)),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           SizedBox(
                             height: 28,
                             child: ElevatedButton(
@@ -1026,6 +1076,17 @@ class _RemotePageState extends State<RemotePage> {
       widget.controller.setTarget(i, value);
     }
     setState(() {});
+  }
+
+  void _resetToDefaults(int mode) {
+    final defaultValue = _getDefaultValueForModeStatic(mode);
+    setState(() {
+      _targets = List.filled(9, defaultValue);
+      for (int i = 0; i < 9; i++) {
+        _chamberControllers[i].text = defaultValue.toStringAsFixed(0);
+        widget.controller.setTarget(i, defaultValue);
+      }
+    });
   }
 
   Widget _buildChamberInput({

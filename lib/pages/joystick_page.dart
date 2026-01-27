@@ -501,7 +501,9 @@ class _JoystickPageState extends State<JoystickPage> {
 
   // Start/Stop control bar
   Widget _buildControlBar(dynamic state) {
-    final isSending = state.sending;
+    // Joystick only works with PWM mode (mode 2)
+    final isPwmMode = state.settings.mode == 2;
+    final isSending = state.sending && isPwmMode;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -557,6 +559,8 @@ class _JoystickPageState extends State<JoystickPage> {
               onPressed: isSending
                   ? null
                   : () {
+                      // Set mode to PWM (mode 2) when starting from joystick
+                      widget.controller.setMode(2);
                       widget.controller.startSending();
                     },
               icon: const Icon(Icons.play_arrow, size: 16),
