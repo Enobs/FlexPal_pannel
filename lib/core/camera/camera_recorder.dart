@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
+import 'dart:typed_data';
 import 'camera_frame.dart';
 
-/// Camera frame recorder with 30 FPS rate limiting (runs in Isolate)
+/// Camera frame recorder - writes frames directly using async I/O.
+/// No isolate overhead, relies on Dart's async file I/O being non-blocking.
 class CameraRecorder {
-  SendPort? _sendPort;
-  Isolate? _isolate;
-  ReceivePort? _receivePort;
   bool _isRecording = false;
+  final Map<int, _CameraWriter> _writers = {};
+  int _frameIntervalMs = 17;
+  int _framesSent = 0;
 
   bool get isRecording => _isRecording;
 
@@ -18,248 +19,166 @@ class CameraRecorder {
       await stop();
     }
 
-    _receivePort = ReceivePort();
-    _isolate = await Isolate.spawn(
-      _recorderIsolateEntry,
-      _receivePort!.sendPort,
-    );
-
-    // Wait for isolate to be ready
-    final completer = Completer<SendPort>();
-    _receivePort!.listen((message) {
-      if (message is SendPort) {
-        completer.complete(message);
-      } else if (message is String) {
-        // Log messages from isolate
-        print('[CameraRecorder] $message');
-      }
-    });
-
-    _sendPort = await completer.future;
-
-    // Send start command
-    _sendPort!.send({
-      'command': 'start',
-      'episodeDir': episodeDir,
-      'saveFps': saveFps,
-    });
-
+    _frameIntervalMs = (1000 / saveFps).round();
+    _writers.clear();
+    _framesSent = 0;
     _isRecording = true;
+
+    print('[CameraRecorder] Recording started: $episodeDir @ ${saveFps}fps (interval: ${_frameIntervalMs}ms)');
+
+    // Pre-create the camera directory
+    await Directory('$episodeDir/camera').create(recursive: true);
+
+    // Store episode dir for writer creation
+    _writers[-1] = _CameraWriter._placeholder(episodeDir);
   }
 
-  /// Stop recording
+  /// Stop recording and wait for all pending writes to finish
   Future<void> stop() async {
     if (!_isRecording) return;
-
-    _sendPort?.send({'command': 'stop'});
-
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    _isolate?.kill(priority: Isolate.immediate);
-    _isolate = null;
-    _receivePort?.close();
-    _receivePort = null;
-    _sendPort = null;
-
     _isRecording = false;
+
+    print('[CameraRecorder] Stopping... (sent $_framesSent frames)');
+
+    // Close all writers (waits for pending writes)
+    for (final entry in _writers.entries) {
+      if (entry.key >= 0) {
+        await entry.value.close();
+      }
+    }
+    _writers.clear();
+
+    print('[CameraRecorder] Recording stopped');
   }
 
-  /// Send frame to recording isolate
+  /// Record a frame - writes asynchronously
   void onFrame(CameraFrame frame) {
-    if (_isRecording && _sendPort != null) {
-      _sendPort!.send({
-        'command': 'frame',
-        'camId': frame.camId,
-        'jpegBytes': frame.jpegBytes,
-        'tsMonoMs': frame.tsMonoMs,
-        'wallIso': frame.wallIso,
-        'width': frame.width,
-        'height': frame.height,
-      });
+    if (!_isRecording) return;
+
+    _framesSent++;
+
+    // Get or create writer for this camera
+    var writer = _writers[frame.camId];
+    if (writer == null) {
+      final placeholder = _writers[-1]!;
+      writer = _CameraWriter(
+        episodeDir: placeholder._episodeDir,
+        camId: frame.camId,
+        frameIntervalMs: _frameIntervalMs,
+      );
+      _writers[frame.camId] = writer;
+    }
+
+    writer.writeFrame(
+      jpegBytes: frame.jpegBytes,
+      tsMonoMs: frame.tsMonoMs,
+      wallIso: frame.wallIso,
+    );
+
+    if (_framesSent % 30 == 0) {
+      final writer = _writers[frame.camId];
+      final saved = writer?._seq ?? 0;
+      final dropped = writer?._droppedFrames ?? 0;
+      print('[CameraRecorder] Received: $_framesSent, Saved: $saved, Dropped by rate limit: $dropped');
     }
   }
 
-  /// Dispose resources
   Future<void> dispose() async {
     await stop();
   }
 }
 
-/// Isolate entry point for camera recording
-void _recorderIsolateEntry(SendPort mainSendPort) {
-  final receivePort = ReceivePort();
-  mainSendPort.send(receivePort.sendPort);
-
-  _RecorderIsolateState? state;
-
-  receivePort.listen((message) {
-    if (message is! Map<String, dynamic>) return;
-
-    final command = message['command'] as String?;
-
-    switch (command) {
-      case 'start':
-        final episodeDir = message['episodeDir'] as String;
-        final saveFps = message['saveFps'] as int;
-        state = _RecorderIsolateState(
-          episodeDir: episodeDir,
-          saveFps: saveFps,
-          logCallback: (msg) => mainSendPort.send(msg),
-        );
-        state!.start();
-        break;
-
-      case 'stop':
-        state?.stop();
-        state = null;
-        break;
-
-      case 'frame':
-        state?.onFrame(
-          camId: message['camId'] as int,
-          jpegBytes: message['jpegBytes'] as List<int>,
-          tsMonoMs: message['tsMonoMs'] as int,
-          wallIso: message['wallIso'] as String,
-          width: message['width'] as int?,
-          height: message['height'] as int?,
-        );
-        break;
-    }
-  });
-}
-
-/// Internal state for recorder isolate
-class _RecorderIsolateState {
-  final String episodeDir;
-  final int saveFps;
-  final void Function(String) logCallback;
-
-  final Map<int, _CameraWriter> _writers = {};
-  final int _frameIntervalMs;
-
-  _RecorderIsolateState({
-    required this.episodeDir,
-    required this.saveFps,
-    required this.logCallback,
-  }) : _frameIntervalMs = (1000 / saveFps).round();
-
-  void start() {
-    logCallback('Camera recorder started: $episodeDir @ ${saveFps}fps');
-  }
-
-  void stop() {
-    for (final writer in _writers.values) {
-      writer.close();
-    }
-    _writers.clear();
-    logCallback('Camera recorder stopped');
-  }
-
-  void onFrame({
-    required int camId,
-    required List<int> jpegBytes,
-    required int tsMonoMs,
-    required String wallIso,
-    int? width,
-    int? height,
-  }) {
-    // Get or create writer for this camera
-    final writer = _writers.putIfAbsent(
-      camId,
-      () => _CameraWriter(
-        episodeDir: episodeDir,
-        camId: camId,
-        frameIntervalMs: _frameIntervalMs,
-        logCallback: logCallback,
-      ),
-    );
-
-    writer.writeFrame(
-      jpegBytes: jpegBytes,
-      tsMonoMs: tsMonoMs,
-      wallIso: wallIso,
-      width: width,
-      height: height,
-    );
-  }
-}
-
 /// Writer for individual camera stream
 class _CameraWriter {
-  final String episodeDir;
+  final String _episodeDir;
   final int camId;
   final int frameIntervalMs;
-  final void Function(String) logCallback;
 
-  late final String _camDir;
-  late final String _framesDir;
-  late final String _indexPath;
-  late final IOSink _indexSink;
+  String? _framesDir;
+  IOSink? _indexSink;
 
   int _seq = 0;
   int _lastSaveMs = 0;
-  bool _indexHeaderWritten = false;
+  int _pendingWrites = 0;
+  int _droppedFrames = 0;
+
+  // Placeholder constructor for storing episodeDir
+  _CameraWriter._placeholder(this._episodeDir) : camId = -1, frameIntervalMs = 0;
 
   _CameraWriter({
-    required this.episodeDir,
+    required String episodeDir,
     required this.camId,
     required this.frameIntervalMs,
-    required this.logCallback,
-  }) {
-    _camDir = '$episodeDir/camera/cam$camId';
-    _framesDir = '$_camDir/frames';
-    _indexPath = '$_camDir/index.csv';
+  }) : _episodeDir = episodeDir {
+    final camDir = '$_episodeDir/camera/cam$camId';
+    _framesDir = '$camDir/frames';
 
-    // Create directories
-    Directory(_framesDir).createSync(recursive: true);
+    // Create directories synchronously (only happens once per camera)
+    Directory(_framesDir!).createSync(recursive: true);
 
     // Open index.csv
-    _indexSink = File(_indexPath).openWrite();
-    _indexSink.writeln('seq,ts_mono_ms,wall_time_iso,filename,w,h');
-    _indexHeaderWritten = true;
+    _indexSink = File('$camDir/index.csv').openWrite();
+    _indexSink!.writeln('seq,ts_mono_ms,wall_time_iso,filename');
 
-    logCallback('Camera writer created: cam$camId');
+    print('[CameraRecorder] Camera writer created: cam$camId (frameIntervalMs: $frameIntervalMs)');
   }
 
   void writeFrame({
-    required List<int> jpegBytes,
+    required Uint8List jpegBytes,
     required int tsMonoMs,
     required String wallIso,
-    int? width,
-    int? height,
   }) {
-    // Rate limiting: skip if too soon since last save
-    if (tsMonoMs - _lastSaveMs < frameIntervalMs) {
-      return;
-    }
+    if (_framesDir == null) return;
 
-    _lastSaveMs = tsMonoMs;
+    // Rate limiting using wall clock time (skip for 60fps - save every frame)
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (frameIntervalMs > 17) {
+      // Only rate limit if target is below 60fps
+      if (now - _lastSaveMs < frameIntervalMs) {
+        _droppedFrames++;
+        return;
+      }
+      _lastSaveMs = now;
+    }
     _seq++;
 
-    // Generate safe filename (replace : with -)
     final safeIso = wallIso.replaceAll(':', '-');
     final filename = '${_seq.toString().padLeft(6, '0')}_mono${tsMonoMs}_$safeIso.jpg';
     final filepath = '$_framesDir/$filename';
 
-    try {
-      // Write JPEG file
-      File(filepath).writeAsBytesSync(jpegBytes, flush: false);
+    _pendingWrites++;
 
-      // Append to index.csv
-      _indexSink.writeln('$_seq,$tsMonoMs,$wallIso,$filename,${width ?? ''},${height ?? ''}');
+    // Async write - doesn't block the event loop
+    File(filepath).writeAsBytes(jpegBytes, flush: false).then((_) {
+      _pendingWrites--;
+    }).catchError((e) {
+      _pendingWrites--;
+      print('[CameraRecorder] ERROR writing frame cam$camId #$_seq: $e');
+    });
 
-      // Log every 30 frames (1 second at 30fps)
-      if (_seq % 30 == 0) {
-        logCallback('Cam $camId: wrote frame #$_seq');
-      }
-    } catch (e) {
-      logCallback('ERROR writing frame cam$camId #$_seq: $e');
+    // Write to index (buffered by IOSink)
+    _indexSink?.writeln('$_seq,$tsMonoMs,$wallIso,$filename');
+
+    if (_seq % 60 == 0) {
+      print('[CameraRecorder] Cam $camId: frame #$_seq (pending: $_pendingWrites, dropped: $_droppedFrames)');
     }
   }
 
-  void close() {
-    _indexSink.flush();
-    _indexSink.close();
-    logCallback('Camera writer closed: cam$camId (wrote $_seq frames)');
+  Future<void> close() async {
+    if (_framesDir == null) return;
+
+    // Wait for pending writes with timeout
+    int waited = 0;
+    while (_pendingWrites > 0 && waited < 5000) {
+      await Future.delayed(const Duration(milliseconds: 10));
+      waited += 10;
+    }
+    if (_pendingWrites > 0) {
+      print('[CameraRecorder] WARNING: cam$camId still has $_pendingWrites pending writes');
+    }
+
+    await _indexSink?.flush();
+    await _indexSink?.close();
+    print('[CameraRecorder] Camera writer closed: cam$camId (saved: $_seq, dropped: $_droppedFrames)');
   }
 }

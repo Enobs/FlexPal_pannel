@@ -18,10 +18,15 @@ class _CameraPageState extends State<CameraPage> {
   final Map<int, CameraStatus?> _latestStatus = {};
   StreamSubscription? _frameSubscription;
   StreamSubscription? _statusSubscription;
+  Timer? _displayTimer;
 
   bool _isPreviewRunning = false;
+  bool _framesDirty = false;
   String _episodeName = '';
-  int _saveFps = 30;
+  int _saveFps = 60;
+
+  // Throttle display to ~60fps (16ms) for low-latency preview
+  static const _displayInterval = Duration(milliseconds: 16);
 
   @override
   void initState() {
@@ -40,12 +45,10 @@ class _CameraPageState extends State<CameraPage> {
 
     widget.controller.cameraService.start(widget.controller.state.settings.camera);
 
+    // Store latest frames without triggering rebuild on every frame
     _frameSubscription = widget.controller.cameraService.frames.listen((frame) {
-      if (mounted) {
-        setState(() {
-          _latestFrames[frame.camId] = frame;
-        });
-      }
+      _latestFrames[frame.camId] = frame;
+      _framesDirty = true;
     });
 
     _statusSubscription = widget.controller.cameraService.status.listen((status) {
@@ -53,6 +56,14 @@ class _CameraPageState extends State<CameraPage> {
         setState(() {
           _latestStatus[status.camId] = status;
         });
+      }
+    });
+
+    // Periodic display refresh - only rebuilds when new frames arrived
+    _displayTimer = Timer.periodic(_displayInterval, (_) {
+      if (_framesDirty && mounted) {
+        _framesDirty = false;
+        setState(() {});
       }
     });
 
@@ -64,6 +75,8 @@ class _CameraPageState extends State<CameraPage> {
   void _stopPreview() {
     if (!_isPreviewRunning) return;
 
+    _displayTimer?.cancel();
+    _displayTimer = null;
     _frameSubscription?.cancel();
     _statusSubscription?.cancel();
     _frameSubscription = null;
@@ -181,7 +194,7 @@ class _CameraPageState extends State<CameraPage> {
                               border: OutlineInputBorder(),
                               isDense: true,
                             ),
-                            items: [10, 15, 20, 30].map((fps) {
+                            items: [10, 15, 20, 30, 60].map((fps) {
                               return DropdownMenuItem(
                                 value: fps,
                                 child: Text('$fps FPS'),

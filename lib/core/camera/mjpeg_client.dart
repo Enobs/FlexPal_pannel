@@ -3,7 +3,10 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'camera_frame.dart';
 
-/// MJPEG HTTP stream client with automatic reconnection
+/// MJPEG HTTP stream client with automatic reconnection.
+/// Emits every complete JPEG frame. Display-side consumers are responsible
+/// for dropping stale frames (e.g. via a periodic timer that only reads
+/// the latest).
 class MjpegClient {
   final Uri url;
   final int camId;
@@ -19,18 +22,16 @@ class MjpegClient {
   MjpegClient({
     required this.url,
     required this.camId,
-    this.timeout = const Duration(seconds: 10),
-    this.reconnectDelay = const Duration(seconds: 3),
+    this.timeout = const Duration(seconds: 5),
+    this.reconnectDelay = const Duration(seconds: 2),
   });
 
-  /// Get stream of camera frames
+  /// Stream of all complete frames.
   Stream<CameraFrame> frames() {
     if (_frameController == null || _frameController!.isClosed) {
       _frameController = StreamController<CameraFrame>.broadcast(
         onListen: _start,
-        onCancel: () {
-          // Keep running even if no listeners
-        },
+        onCancel: () {},
       );
     }
     return _frameController!.stream;
@@ -45,13 +46,18 @@ class MjpegClient {
   Future<void> _connect() async {
     if (!_isRunning) return;
 
+    // Clean up any previous connection before creating a new one
+    _cleanup();
+
     try {
       _httpClient = HttpClient()
         ..connectionTimeout = timeout
-        ..idleTimeout = const Duration(minutes: 5);
+        ..idleTimeout = const Duration(seconds: 15)
+        ..autoUncompress = false;
 
       final request = await _httpClient!.getUrl(url);
       request.headers.add('User-Agent', 'FlexPAL-Camera/1.0');
+      request.headers.add('Connection', 'keep-alive');
 
       final response = await request.close();
 
@@ -59,84 +65,119 @@ class MjpegClient {
         throw HttpException('HTTP ${response.statusCode}: ${response.reasonPhrase}');
       }
 
-      // Parse MJPEG stream
-      _responseSubscription = _parseMjpegStream(response).listen(
-        (frame) {
-          if (_frameController != null && !_frameController!.isClosed) {
-            _frameController!.add(frame);
-          }
-        },
-        onError: (error) {
-          _handleError(error);
-        },
-        onDone: () {
-          _handleDisconnect();
-        },
-        cancelOnError: false,
-      );
+      _parseMjpegDirect(response);
+    } on SocketException catch (e) {
+      _handleError(e);
+    } on HttpException catch (e) {
+      _handleError(e);
     } catch (e) {
       _handleError(e);
     }
   }
 
-  /// Parse MJPEG multipart stream into individual JPEG frames
-  Stream<CameraFrame> _parseMjpegStream(HttpClientResponse response) async* {
-    final List<int> buffer = [];
-    const jpegStart = [0xFF, 0xD8]; // JPEG SOI marker
-    const jpegEnd = [0xFF, 0xD9];   // JPEG EOI marker
+  void _parseMjpegDirect(HttpClientResponse response) {
+    Uint8List _buf = Uint8List(512 * 1024);
+    int _len = 0;
+    int _frameCount = 0;
+    int _lastLogTime = DateTime.now().millisecondsSinceEpoch;
 
-    await for (final chunk in response) {
-      buffer.addAll(chunk);
-
-      // Search for complete JPEG frames
-      while (true) {
-        final startIdx = _findSequence(buffer, jpegStart);
-        if (startIdx == -1) break;
-
-        final endIdx = _findSequence(buffer, jpegEnd, startIdx + 2);
-        if (endIdx == -1) break;
-
-        // Extract JPEG frame
-        final jpegBytes = Uint8List.fromList(
-          buffer.sublist(startIdx, endIdx + 2),
-        );
-
-        // Remove extracted frame from buffer
-        buffer.removeRange(0, endIdx + 2);
-
-        // Generate timestamps
-        final now = DateTime.now().toUtc();
-        final tsMonoMs = now.millisecondsSinceEpoch;
-        final wallIso = now.toIso8601String().replaceAll(':', '-');
-
-        yield CameraFrame(
-          camId: camId,
-          jpegBytes: jpegBytes,
-          tsMonoMs: tsMonoMs,
-          wallIso: wallIso,
-        );
-      }
-
-      // Prevent buffer from growing too large
-      if (buffer.length > 10 * 1024 * 1024) { // 10MB limit
-        buffer.clear();
+    void _ensureCapacity(int needed) {
+      if (_len + needed > _buf.length) {
+        final newBuf = Uint8List((_len + needed) * 2);
+        newBuf.setRange(0, _len, _buf);
+        _buf = newBuf;
       }
     }
-  }
 
-  /// Find byte sequence in buffer
-  int _findSequence(List<int> buffer, List<int> sequence, [int start = 0]) {
-    for (int i = start; i <= buffer.length - sequence.length; i++) {
-      bool found = true;
-      for (int j = 0; j < sequence.length; j++) {
-        if (buffer[i + j] != sequence[j]) {
-          found = false;
-          break;
+    _responseSubscription = response.listen(
+      (List<int> chunk) {
+        _ensureCapacity(chunk.length);
+        if (chunk is Uint8List) {
+          _buf.setRange(_len, _len + chunk.length, chunk);
+        } else {
+          for (int i = 0; i < chunk.length; i++) {
+            _buf[_len + i] = chunk[i];
+          }
         }
-      }
-      if (found) return i;
-    }
-    return -1;
+        _len += chunk.length;
+
+        while (_len >= 4) {
+          // Find SOI (0xFF 0xD8)
+          int startIdx = -1;
+          for (int i = 0; i <= _len - 2; i++) {
+            if (_buf[i] == 0xFF && _buf[i + 1] == 0xD8) {
+              startIdx = i;
+              break;
+            }
+          }
+          if (startIdx == -1) {
+            _len = 0;
+            break;
+          }
+
+          // Find EOI (0xFF 0xD9) after SOI
+          int endIdx = -1;
+          for (int i = startIdx + 2; i <= _len - 2; i++) {
+            if (_buf[i] == 0xFF && _buf[i + 1] == 0xD9) {
+              endIdx = i;
+              break;
+            }
+          }
+          if (endIdx == -1) {
+            if (startIdx > 0) {
+              final remaining = _len - startIdx;
+              _buf.setRange(0, remaining, _buf, startIdx);
+              _len = remaining;
+            }
+            break;
+          }
+
+          // Complete frame
+          final frameLen = endIdx + 2 - startIdx;
+          final jpegBytes = Uint8List.fromList(
+            _buf.buffer.asUint8List(_buf.offsetInBytes + startIdx, frameLen),
+          );
+
+          // Compact buffer
+          final consumed = endIdx + 2;
+          final remaining = _len - consumed;
+          if (remaining > 0) {
+            _buf.setRange(0, remaining, _buf, consumed);
+          }
+          _len = remaining;
+
+          // Emit frame
+          if (_frameController != null && !_frameController!.isClosed) {
+            final now = DateTime.now().toUtc();
+            _frameController!.add(CameraFrame(
+              camId: camId,
+              jpegBytes: jpegBytes,
+              tsMonoMs: now.millisecondsSinceEpoch,
+              wallIso: now.toIso8601String().replaceAll(':', '-'),
+            ));
+
+            _frameCount++;
+            final nowMs = now.millisecondsSinceEpoch;
+            if (nowMs - _lastLogTime >= 1000) {
+              print('[MjpegClient] cam$camId: $_frameCount frames/sec from network');
+              _frameCount = 0;
+              _lastLogTime = nowMs;
+            }
+          }
+        }
+
+        if (_len > 10 * 1024 * 1024) {
+          _len = 0;
+        }
+      },
+      onError: (error) {
+        _handleError(error);
+      },
+      onDone: () {
+        _handleDisconnect();
+      },
+      cancelOnError: false,
+    );
   }
 
   void _handleError(dynamic error) {
@@ -166,11 +207,12 @@ class MjpegClient {
   void _cleanup() {
     _responseSubscription?.cancel();
     _responseSubscription = null;
-    _httpClient?.close(force: true);
+    try {
+      _httpClient?.close(force: true);
+    } catch (_) {}
     _httpClient = null;
   }
 
-  /// Close the client and stop streaming
   Future<void> close() async {
     _isRunning = false;
     _reconnectTimer?.cancel();

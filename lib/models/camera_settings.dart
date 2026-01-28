@@ -86,7 +86,7 @@ class CameraSettings {
       camera3: CameraConfig(ip: '', port: 8081, enabled: false),
       path: '/?action=stream',
       maxViews: 3,
-      defaultSaveFps: 30,
+      defaultSaveFps: 60,
       outputRoot: './VLA_Records',
     );
   }
@@ -101,7 +101,7 @@ class CameraSettings {
         camera3: CameraConfig.fromJson(json['camera3'] as Map<String, dynamic>? ?? {}),
         path: json['path'] as String? ?? '/?action=stream',
         maxViews: json['maxViews'] as int? ?? 3,
-        defaultSaveFps: json['defaultSaveFps'] as int? ?? 30,
+        defaultSaveFps: json['defaultSaveFps'] as int? ?? 60,
         outputRoot: json['outputRoot'] as String? ?? './VLA_Records',
       );
     }
@@ -116,7 +116,7 @@ class CameraSettings {
       camera3: CameraConfig(ip: '', port: ports.length > 2 ? ports[2] : 8081, enabled: false),
       path: json['path'] as String? ?? '/?action=stream',
       maxViews: json['maxViews'] as int? ?? 3,
-      defaultSaveFps: json['defaultSaveFps'] as int? ?? 30,
+      defaultSaveFps: json['defaultSaveFps'] as int? ?? 60,
       outputRoot: json['outputRoot'] as String? ?? './VLA_Records',
       baseIp: baseIp,
       ports: ports,

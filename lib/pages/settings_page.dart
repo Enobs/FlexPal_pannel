@@ -234,7 +234,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildDropdown(
                     'Default Save FPS',
                     _cameraSaveFps,
-                    {10: '10 FPS', 15: '15 FPS', 20: '20 FPS', 30: '30 FPS'},
+                    {10: '10 FPS', 15: '15 FPS', 20: '20 FPS', 30: '30 FPS', 60: '60 FPS'},
                     (value) {
                       setState(() {
                         _cameraSaveFps = value!;
@@ -640,7 +640,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _cameraPathController.text = '/?action=stream';
       _cameraOutputRootController.text = './VLA_Records';
       _cameraMaxViews = 3;
-      _cameraSaveFps = 30;
+      _cameraSaveFps = 60;
 
       // Restore gripper defaults
       _gripperIpController.text = '192.168.137.244';

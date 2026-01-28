@@ -148,13 +148,11 @@ class _CameraStats {
 
     if (deltaMs <= 0) return 0.0;
 
-    // FPS = (frame count - 1) / time_interval_in_seconds
     return (_frameTimes.length - 1) / (deltaMs / 1000.0);
   }
 
   bool isOnline() {
     final now = DateTime.now().millisecondsSinceEpoch;
-    // Consider online if received frame in last 5 seconds
     return (now - _lastFrameTime) < 5000;
   }
 
