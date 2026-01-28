@@ -27,7 +27,20 @@
       "Bash(done)",
       "Bash(nmcli connection show:*)",
       "Bash(nmcli connection:*)",
-      "Bash(nmcli:*)"
+      "Bash(nmcli:*)",
+      "Bash(ssh:*)",
+      "Bash(sshpass:*)",
+      "Bash(sudo apt-get:*)",
+      "Bash(/snap/bin/flutter build:*)",
+      "Bash(echo:*)",
+      "Bash(bash -l -c:*)",
+      "Bash(bash -c 'export PATH=\"\"$PATH:/snap/bin\"\" && flutter doctor 2>&1')",
+      "Bash(/snap/bin/flutter doctor:*)",
+      "Bash(python3:*)",
+      "Bash(bc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nOptimize camera recording to achieve 60fps\n\n- Rewrite MJPEG parser with fixed-size buffer for lower latency\n- Remove isolate from camera recorder \\(async I/O is sufficient\\)\n- Skip rate limiting for 60fps mode to capture all frames\n- Add 60fps option to settings dropdown\n- Change default save FPS from 30 to 60\n- Add debug logging for frame rate monitoring\n- Fix HttpClient cleanup on reconnect to prevent leaks\n\nRecording now achieves 60fps with avg 16.5ms frame delta.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(gh auth:*)"
     ],
     "deny": [],
     "ask": []
