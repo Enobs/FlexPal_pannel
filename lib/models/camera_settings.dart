@@ -61,6 +61,7 @@ class CameraSettings {
   final int maxViews;
   final int defaultSaveFps;
   final String outputRoot;
+  final bool useUdp; // Use UDP/RTP instead of MJPEG/HTTP
 
   // Legacy fields for backwards compatibility
   final String? baseIp;
@@ -74,6 +75,7 @@ class CameraSettings {
     required this.maxViews,
     required this.defaultSaveFps,
     required this.outputRoot,
+    this.useUdp = false,
     this.baseIp,
     this.ports,
   });
@@ -103,6 +105,7 @@ class CameraSettings {
         maxViews: json['maxViews'] as int? ?? 3,
         defaultSaveFps: json['defaultSaveFps'] as int? ?? 60,
         outputRoot: json['outputRoot'] as String? ?? './VLA_Records',
+        useUdp: json['useUdp'] as bool? ?? false,
       );
     }
 
@@ -118,6 +121,7 @@ class CameraSettings {
       maxViews: json['maxViews'] as int? ?? 3,
       defaultSaveFps: json['defaultSaveFps'] as int? ?? 60,
       outputRoot: json['outputRoot'] as String? ?? './VLA_Records',
+      useUdp: json['useUdp'] as bool? ?? false,
       baseIp: baseIp,
       ports: ports,
     );
@@ -133,6 +137,7 @@ class CameraSettings {
       'maxViews': maxViews,
       'defaultSaveFps': defaultSaveFps,
       'outputRoot': outputRoot,
+      'useUdp': useUdp,
     };
   }
 
@@ -155,6 +160,7 @@ class CameraSettings {
     int? maxViews,
     int? defaultSaveFps,
     String? outputRoot,
+    bool? useUdp,
   }) {
     return CameraSettings(
       camera1: camera1 ?? this.camera1,
@@ -164,6 +170,7 @@ class CameraSettings {
       maxViews: maxViews ?? this.maxViews,
       defaultSaveFps: defaultSaveFps ?? this.defaultSaveFps,
       outputRoot: outputRoot ?? this.outputRoot,
+      useUdp: useUdp ?? this.useUdp,
     );
   }
 

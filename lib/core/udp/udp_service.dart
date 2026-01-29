@@ -7,16 +7,14 @@ import 'packet_parser.dart';
 
 /// UDP communication service for FlexPAL system
 class UdpService {
-  RawDatagramSocket? _sendSocket;
-  RawDatagramSocket? _recvSocket;
+  RawDatagramSocket? _socket;  // Single socket for both send and receive
   Timer? _sendTimer;
 
   final _packetController = StreamController<ParsedPacket>.broadcast();
   final _logController = StreamController<String>.broadcast();
 
   String _broadcastAddress = '192.168.137.255';
-  int _sendPort = 5005;
-  int _recvPort = 5006;
+  int _port = 5005;  // Single port for both commands and telemetry
   int _sendRateHz = 25;
   int _mode = 3;
   List<int> _targets = List.filled(9, 0);
@@ -36,7 +34,7 @@ class UdpService {
   int get recvCount => _recvCount;
   int get parseErrorCount => _parseErrorCount;
 
-  /// Start UDP service (begin listening on recv port)
+  /// Start UDP service (begin listening and sending on same port)
   Future<void> start(String broadcastAddress, int sendPort, int recvPort) async {
     if (_isRunning) {
       _log('UDP service already running');
@@ -44,20 +42,16 @@ class UdpService {
     }
 
     _broadcastAddress = broadcastAddress;
-    _sendPort = sendPort;
-    _recvPort = recvPort;
+    _port = sendPort;  // Use sendPort for both (recvPort ignored for backwards compat)
 
     try {
-      // Create send socket
-      _sendSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-      _sendSocket!.broadcastEnabled = true;
-
-      // Create receive socket
-      _recvSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _recvPort);
-      _recvSocket!.listen(_handleIncomingPacket);
+      // Create single socket for both send and receive on port 5005
+      _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _port);
+      _socket!.broadcastEnabled = true;
+      _socket!.listen(_handleIncomingPacket);
 
       _isRunning = true;
-      _log('UDP service started: recv on :$_recvPort, send to $_broadcastAddress:$_sendPort');
+      _log('UDP service started on port $_port (broadcast to $_broadcastAddress)');
     } catch (e) {
       _log('ERROR: Failed to start UDP service: $e');
       await stop();
@@ -69,10 +63,8 @@ class UdpService {
   Future<void> stop() async {
     await stopSending();
 
-    _sendSocket?.close();
-    _recvSocket?.close();
-    _sendSocket = null;
-    _recvSocket = null;
+    _socket?.close();
+    _socket = null;
 
     _isRunning = false;
     _sendSeq = 0;
@@ -184,26 +176,26 @@ class UdpService {
   /// Get last sent packet info
   (int mode, String addr, int port, List<int> targets)? getLastSent() {
     if (_sendSeq == 0) return null;
-    return (_mode, _broadcastAddress, _sendPort, List.from(_targets));
+    return (_mode, _broadcastAddress, _port, List.from(_targets));
   }
 
   // Private methods
 
   void _sendCommandPacket() {
-    if (_sendSocket == null) return;
+    if (_socket == null) return;
 
     final buffer = PacketBuilder.buildCommand(_mode, _targets);
     final address = InternetAddress(_broadcastAddress);
 
     try {
-      final bytesSent = _sendSocket!.send(buffer, address, _sendPort);
+      final bytesSent = _socket!.send(buffer, address, _port);
       _sendSeq++;
 
       // Log every 25th packet to avoid spam (1 second at 25Hz)
       if (_sendSeq % 25 == 1) {
         final hexPreview = buffer.take(8).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
         final fullHex = buffer.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
-        _log('Sent packet #$_sendSeq: $bytesSent bytes to $_broadcastAddress:$_sendPort');
+        _log('Sent packet #$_sendSeq: $bytesSent bytes to $_broadcastAddress:$_port');
         _log('  Full packet (hex): $fullHex');
         _log('  Target values (Int32): ${_targets.map((t) => t.toString()).join(', ')}');
         _log('  Target values (Display): ${_targets.map((t) => PacketBuilder.convertFromInt32(_mode, t).toStringAsFixed(1)).join(', ')}');
@@ -216,20 +208,23 @@ class UdpService {
 
   void _handleIncomingPacket(RawSocketEvent event) {
     if (event == RawSocketEvent.read) {
-      final datagram = _recvSocket!.receive();
+      final datagram = _socket!.receive();
       if (datagram == null) return;
 
-      // Ignore our own broadcast command packets (39 bytes)
-      if (datagram.data.length == 39) {
-        // This is likely our own command packet being received back
+      final hexPreview = datagram.data.take(10).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+
+      // Debug: print ALL incoming packets to console
+      print('[UDP RAW] ${datagram.data.length} bytes from ${datagram.address.address}:${datagram.port} -> $hexPreview');
+
+      // Ignore our own broadcast command packets (40 bytes with 0xAA header)
+      if (datagram.data.length == 40 && datagram.data[0] == 0xAA) {
+        // This is our own command packet being received back
+        print('[UDP RAW] ^ Ignored (our command echo)');
         return;
       }
 
       // Log raw packet reception
       _log('Received ${datagram.data.length} bytes from ${datagram.address.address}:${datagram.port}');
-
-      // Show first few bytes in hex for debugging
-      final hexPreview = datagram.data.take(8).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
       _log('  Packet preview (hex): $hexPreview...');
 
       final packet = PacketParser.parse(
@@ -242,10 +237,12 @@ class UdpService {
         _recvCount++;
         _packetController.add(packet);
         _log('  ✓ Parsed: Chamber ${packet.chamberId}, Length=${packet.lengthMm.toStringAsFixed(1)}mm');
+        print('[UDP RAW] ^ Parsed OK: Chamber ${packet.chamberId}');
       } else {
         _parseErrorCount++;
         final error = PacketParser.lastError ?? 'Unknown error';
         _log('  ✗ Parse failed: $error (total errors: $_parseErrorCount)');
+        print('[UDP RAW] ^ Parse FAILED: $error');
       }
     }
   }

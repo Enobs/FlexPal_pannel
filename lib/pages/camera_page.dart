@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/state/controller.dart';
 import '../core/camera/camera_frame.dart';
+import '../core/camera/camera_service.dart';
 
 /// Camera page - preview and recording controls
 class CameraPage extends StatefulWidget {
@@ -43,7 +44,9 @@ class _CameraPageState extends State<CameraPage> {
   void _startPreview() {
     if (_isPreviewRunning) return;
 
-    widget.controller.cameraService.start(widget.controller.state.settings.camera);
+    final cameraSettings = widget.controller.state.settings.camera;
+    final protocol = cameraSettings.useUdp ? StreamProtocol.udp : StreamProtocol.mjpeg;
+    widget.controller.cameraService.startWithProtocol(cameraSettings, protocol);
 
     // Store latest frames without triggering rebuild on every frame
     _frameSubscription = widget.controller.cameraService.frames.listen((frame) {

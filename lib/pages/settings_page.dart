@@ -37,6 +37,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _cameraOutputRootController;
   int _cameraMaxViews = 3;
   int _cameraSaveFps = 30;
+  bool _cameraUseUdp = false;
 
   // Gripper settings controllers
   late TextEditingController _gripperIpController;
@@ -69,6 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _cameraOutputRootController = TextEditingController(text: settings.camera.outputRoot);
     _cameraMaxViews = settings.camera.maxViews;
     _cameraSaveFps = settings.camera.defaultSaveFps;
+    _cameraUseUdp = settings.camera.useUdp;
 
     // Initialize gripper settings
     _gripperIpController = TextEditingController(text: settings.gripper.ip);
@@ -246,6 +248,27 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Output Root Directory',
                     _cameraOutputRootController,
                     './VLA_Records',
+                  ),
+                  const SizedBox(height: 12),
+                  // UDP Protocol toggle
+                  SwitchListTile(
+                    title: const Text(
+                      'Use UDP/RTP (GStreamer)',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      _cameraUseUdp
+                        ? 'Lower latency, requires GStreamer on Pi'
+                        : 'MJPEG/HTTP (default, works with mjpg-streamer)',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    value: _cameraUseUdp,
+                    onChanged: (value) {
+                      setState(() {
+                        _cameraUseUdp = value;
+                      });
+                    },
+                    activeColor: const Color(0xFF3498DB),
                   ),
                   const SizedBox(height: 24),
                   // Gripper settings
@@ -594,6 +617,7 @@ class _SettingsPageState extends State<SettingsPage> {
           maxViews: _cameraMaxViews,
           defaultSaveFps: _cameraSaveFps,
           outputRoot: _cameraOutputRootController.text.trim(),
+          useUdp: _cameraUseUdp,
         ),
         gripper: widget.controller.state.settings.gripper.copyWith(
           ip: _gripperIpController.text.trim(),
@@ -641,6 +665,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _cameraOutputRootController.text = './VLA_Records';
       _cameraMaxViews = 3;
       _cameraSaveFps = 60;
+      _cameraUseUdp = false;
 
       // Restore gripper defaults
       _gripperIpController.text = '192.168.137.244';

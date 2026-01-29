@@ -1,30 +1,36 @@
 import 'dart:typed_data';
 
-/// Builds 39-byte command packets for STM32
+/// Command header byte - distinguishes app commands from board telemetry
+const int kCommandHeader = 0xAA;
+
+/// Builds 40-byte command packets for STM32
 class PacketBuilder {
-  /// Build command buffer: 1 byte mode + 9×4 bytes targets + 2 bytes CRLF
+  /// Build command buffer: 1 byte header (0xAA) + 1 byte mode + 9×4 bytes targets + 2 bytes CRLF
   ///
   /// [mode] - 1=Pressure, 2=PWM, 3=Length
   /// [targets] - 9 Int32 values (little endian)
   ///
-  /// Returns 39-byte Uint8List
+  /// Returns 40-byte Uint8List
   static Uint8List buildCommand(int mode, List<int> targets) {
     assert(targets.length == 9, 'Must have exactly 9 target values');
     assert(mode >= 1 && mode <= 3, 'Mode must be 1, 2, or 3');
 
-    final buffer = ByteData(39);
+    final buffer = ByteData(40);
 
-    // Byte 0: CommandType
-    buffer.setUint8(0, mode);
+    // Byte 0: Command header (0xAA)
+    buffer.setUint8(0, kCommandHeader);
 
-    // Bytes 1-36: 9 × Int32LE targets
+    // Byte 1: CommandType (mode)
+    buffer.setUint8(1, mode);
+
+    // Bytes 2-37: 9 × Int32LE targets
     for (int i = 0; i < 9; i++) {
-      buffer.setInt32(1 + i * 4, targets[i], Endian.little);
+      buffer.setInt32(2 + i * 4, targets[i], Endian.little);
     }
 
-    // Bytes 37-38: CRLF
-    buffer.setUint8(37, 0x0D);
-    buffer.setUint8(38, 0x0A);
+    // Bytes 38-39: CRLF
+    buffer.setUint8(38, 0x0D);
+    buffer.setUint8(39, 0x0A);
 
     return buffer.buffer.asUint8List();
   }
