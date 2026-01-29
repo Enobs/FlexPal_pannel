@@ -647,7 +647,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _addressController.text = '192.168.137.255';
       _sendPortController.text = '5005';
-      _recvPortController.text = '5005';
+      _recvPortController.text = '5006';
       _rateController.text = '25';
       _mode = 3;
 
